@@ -288,7 +288,43 @@ def get_my_total_points(name):
     return {"study": s, "vital": v, "total": s + v}
 
 
-# ===== 8. 구글폼 응답 동기화 =====
+# ===== 8. 일일 학습현황 (교사용, 특정 날짜 전체 학생 현황) =====
+def get_daily_status(date_str):
+    """특정 날짜(YYYY-MM-DD)에 전체 학생이 학습기록/바이탈체크를 했는지 조회"""
+    sh = get_spreadsheet()
+
+    study_ws = sh.worksheet("학습_기록")
+    study_records = study_ws.get_all_records(expected_headers=[
+        "날짜", "학생이름", "리딩_목표시간", "리딩_성취시간", "읽은횟수", "딕테이션", "어휘"
+    ])
+    study_map = {r["학생이름"]: r for r in study_records if str(r["날짜"])[:10] == date_str}
+
+    vital_ws = sh.worksheet("바이탈체크")
+    vital_records = vital_ws.get_all_records(expected_headers=[
+        "작성일자", "학생이름", "감사한_일", "사랑을_경험한_일",
+        "남을_칭찬하거나_격려한_일", "역경을_극복한_일", "호기심_궁금했던_점", "도전해_본_일"
+    ])
+    vital_map = {r["학생이름"]: r for r in vital_records if str(r["작성일자"])[:10] == date_str}
+
+    names = get_all_student_names()
+    result = []
+    for name in names:
+        study = study_map.get(name)
+        vital = vital_map.get(name)
+        result.append({
+            "name": name,
+            "study_done": study is not None,
+            "vital_done": vital is not None,
+            "study": study,
+            "vital": vital,
+        })
+
+    # 미완료(둘 다 안 함) 학생이 먼저 보이도록 정렬
+    result.sort(key=lambda s: (s["study_done"], s["vital_done"]))
+    return result
+
+
+# ===== 9. 구글폼 응답 동기화 =====
 def parse_timestamp_date(timestamp_str):
     """구글폼 타임스탬프 문자열에서 날짜(YYYY-MM-DD)만 추출"""
     match = re.match(r"(\d{4})\D+(\d{1,2})\D+(\d{1,2})", timestamp_str.strip())

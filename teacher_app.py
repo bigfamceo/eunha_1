@@ -133,6 +133,64 @@ def get_student_list():
     return [row["이름"] for row in records]
 
 
+# ===== 일일 학습현황 (전체 학생, 날짜 선택) =====
+def show_daily_status():
+    st.markdown("#### 📅 일일 학습현황")
+
+    selected_date = st.date_input("날짜 선택", value=datetime.now())
+    date_str = selected_date.strftime("%Y-%m-%d")
+
+    status_list = sd.get_daily_status(date_str)
+    total = len(status_list)
+    study_done = sum(1 for s in status_list if s["study_done"])
+    vital_done = sum(1 for s in status_list if s["vital_done"])
+    both_done = sum(1 for s in status_list if s["study_done"] and s["vital_done"])
+
+    st.write("")
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("전체 학생", f"{total}명")
+    c2.metric("학습 기록", f"{study_done}명")
+    c3.metric("바이탈체크", f"{vital_done}명")
+    c4.metric("둘 다 완료", f"{both_done}명")
+
+    st.write("")
+
+    if not status_list:
+        st.info("등록된 학생이 없어요.")
+        return
+
+    for s in status_list:
+        with st.container(border=True):
+            col1, col2, col3 = st.columns([2, 1, 1])
+            with col1:
+                st.write(f"**{s['name']}**")
+            with col2:
+                st.markdown(
+                    badge("학습 완료", "#0F766E") if s["study_done"] else badge("학습 미완료", "#9CA3AF"),
+                    unsafe_allow_html=True,
+                )
+            with col3:
+                st.markdown(
+                    badge("바이탈 완료", "#0F766E") if s["vital_done"] else badge("바이탈 미완료", "#9CA3AF"),
+                    unsafe_allow_html=True,
+                )
+
+            if s["study_done"] or s["vital_done"]:
+                with st.expander("자세히 보기"):
+                    if s["study_done"]:
+                        r = s["study"]
+                        st.caption(f"읽은 횟수: {r['읽은횟수']}회 · 딕테이션 {r['딕테이션']} · 어휘 {r['어휘']}")
+                        st.caption(f"목표 {r['리딩_목표시간']}초 → 성취 {r['리딩_성취시간']}초")
+                    if s["vital_done"]:
+                        v = s["vital"]
+                        st.write(f"**감사한 일:** {v['감사한_일']}")
+                        st.write(f"**사랑을 경험한 일:** {v['사랑을_경험한_일']}")
+                        st.write(f"**칭찬/격려한 일:** {v['남을_칭찬하거나_격려한_일']}")
+                        st.write(f"**역경 극복한 일:** {v['역경을_극복한_일']}")
+                        st.write(f"**호기심/궁금했던 점:** {v['호기심_궁금했던_점']}")
+                        st.write(f"**도전해 본 일:** {v['도전해_본_일']}")
+
+
 # ===== 교사 메인 화면 =====
 def show_teacher_main():
     with st.sidebar:
@@ -143,8 +201,16 @@ def show_teacher_main():
             st.rerun()
 
         st.divider()
-        student_names = get_student_list()
-        selected_student = st.selectbox("학생 선택", student_names)
+        menu = st.radio(
+            "메뉴",
+            ["👤 학생별 조회", "📅 일일 학습현황 확인"],
+            label_visibility="collapsed",
+        )
+
+        selected_student = None
+        if menu == "👤 학생별 조회":
+            student_names = get_student_list()
+            selected_student = st.selectbox("학생 선택", student_names)
 
         st.write("")
         if st.button("🔄 구글폼 새 응답 가져오기", use_container_width=True):
@@ -156,6 +222,10 @@ def show_teacher_main():
 
     st.markdown("#### 👩‍🏫 센터 교사관리")
     st.write("")
+
+    if menu == "📅 일일 학습현황 확인":
+        show_daily_status()
+        return
 
     if not selected_student:
         return
@@ -336,4 +406,5 @@ if st.session_state.teacher_logged_in:
     show_teacher_main()
 else:
     show_teacher_login()
+
     
