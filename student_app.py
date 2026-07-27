@@ -1,7 +1,43 @@
 import streamlit as st
 import student_data as sd
 
-st.set_page_config(page_title="센터 학습관리", page_icon="📚")
+st.set_page_config(page_title="센터 학습관리", page_icon="📚", layout="centered")
+
+# ===== 미니멀 디자인 CSS =====
+MINIMAL_CSS = """
+<style>
+    .block-container {padding-top: 2.5rem; padding-bottom: 3rem; max-width: 760px;}
+    h1, h2, h3 {font-weight: 700; letter-spacing: -0.5px;}
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        border-radius: 12px !important;
+    }
+    .stButton>button {
+        border-radius: 8px;
+        font-weight: 500;
+    }
+    .stButton>button[kind="primary"] {
+        background-color: #0F766E;
+        border-color: #0F766E;
+    }
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 4px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 8px 8px 0 0;
+        padding: 8px 16px;
+    }
+    div[data-testid="stTextInput"] input,
+    div[data-testid="stTextArea"] textarea,
+    div[data-testid="stNumberInput"] input {
+        border-radius: 8px;
+    }
+    div[data-testid="stDataFrame"] {
+        border-radius: 10px;
+        overflow: hidden;
+    }
+</style>
+"""
+st.markdown(MINIMAL_CSS, unsafe_allow_html=True)
 
 # ===== 세션 상태 초기화 =====
 if "logged_in" not in st.session_state:
@@ -13,54 +49,62 @@ if "student_info" not in st.session_state:
 # ===== 로그인 화면 =====
 def show_login():
     st.title("📚 센터 학습관리")
-    st.subheader("로그인")
+    st.caption("오늘의 학습을 기록하고 나의 성장을 확인해보세요")
+    st.write("")
 
-    name = st.text_input("이름")
-    password = st.text_input("비밀번호", type="password")
+    with st.container(border=True):
+        name = st.text_input("이름")
+        password = st.text_input("비밀번호", type="password")
+        st.write("")
 
-    if st.button("로그인", use_container_width=True):
-        if not name or not password:
-            st.warning("이름과 비밀번호를 모두 입력해주세요.")
-            return
+        if st.button("로그인", use_container_width=True, type="primary"):
+            if not name or not password:
+                st.warning("이름과 비밀번호를 모두 입력해주세요.")
+                return
 
-        result = sd.login(name, password)
-        if result:
-            st.session_state.logged_in = True
-            st.session_state.student_info = result
-            st.rerun()
-        else:
-            st.error("이름 또는 비밀번호가 올바르지 않습니다.")
+            result = sd.login(name, password)
+            if result:
+                st.session_state.logged_in = True
+                st.session_state.student_info = result
+                st.rerun()
+            else:
+                st.error("이름 또는 비밀번호가 올바르지 않습니다.")
 
 
 # ===== 탭 1: 오늘 기록하기 (학습 기록 + 바이탈체크 통합) =====
 def tab_add_record(name):
-    st.subheader("📝 오늘 학습 기록")
+    with st.container(border=True):
+        st.subheader("📝 오늘 학습 기록")
 
-    col1, col2 = st.columns(2)
-    with col1:
-        target_time = st.number_input("리딩 목표시간 (초)", min_value=0, step=10)
-    with col2:
-        achieved_time = st.number_input("리딩 성취시간 (초)", min_value=0, step=10)
+        col1, col2 = st.columns(2)
+        with col1:
+            target_time = st.number_input("리딩 목표시간 (초)", min_value=0, step=10)
+        with col2:
+            achieved_time = st.number_input("리딩 성취시간 (초)", min_value=0, step=10)
 
-    read_count = st.number_input("읽은 횟수", min_value=0, step=1)
+        read_count = st.number_input("읽은 횟수", min_value=0, step=1)
 
-    col3, col4 = st.columns(2)
-    with col3:
-        dictation = st.selectbox("딕테이션", ["O", "X"])
-    with col4:
-        vocab = st.selectbox("어휘", ["O", "X"])
+        col3, col4 = st.columns(2)
+        with col3:
+            dictation = st.selectbox("딕테이션", ["O", "X"])
+        with col4:
+            vocab = st.selectbox("어휘", ["O", "X"])
 
-    st.divider()
-    st.subheader("💭 바이탈체크")
+    st.write("")
 
-    gratitude = st.text_area("감사한 일")
-    love = st.text_area("사랑을 경험한 일")
-    praise = st.text_area("남을 칭찬하거나 격려한 일")
-    overcome = st.text_area("역경을 극복한 일")
-    curiosity = st.text_area("오늘 호기심이나 궁금했던 점")
-    challenge = st.text_area("오늘 도전해 본 일")
+    with st.container(border=True):
+        st.subheader("💭 바이탈체크")
 
-    if st.button("오늘 기록 저장하기", use_container_width=True):
+        gratitude = st.text_area("감사한 일")
+        love = st.text_area("사랑을 경험한 일")
+        praise = st.text_area("남을 칭찬하거나 격려한 일")
+        overcome = st.text_area("역경을 극복한 일")
+        curiosity = st.text_area("오늘 호기심이나 궁금했던 점")
+        challenge = st.text_area("오늘 도전해 본 일")
+
+    st.write("")
+
+    if st.button("오늘 기록 저장하기", use_container_width=True, type="primary"):
         sd.add_study_record(name, target_time, achieved_time, read_count, dictation, vocab)
         sd.add_student_reflection(name, gratitude, love, praise, overcome, curiosity, challenge)
         st.success("✅ 오늘의 학습 기록과 바이탈체크가 저장되었어요!")
@@ -73,11 +117,11 @@ def tab_view_records(name):
     records = sd.get_study_records(name)
     if records:
         records_sorted = sorted(records, key=lambda r: r["날짜"], reverse=True)
-        st.dataframe(records_sorted, use_container_width=True)
+        st.dataframe(records_sorted, use_container_width=True, hide_index=True)
     else:
         st.info("아직 기록된 학습 내용이 없어요.")
 
-    st.divider()
+    st.write("")
     st.subheader("💭 내 바이탈체크")
 
     reflections = sd.get_student_reflections(name)
@@ -101,15 +145,18 @@ def show_main():
     info = st.session_state.student_info
     name = info["이름"]
 
-    st.title(f"👋 안녕하세요, {name}님!")
-    st.caption(f"학년: {info['학년']}")
+    col1, col2 = st.columns([5, 1])
+    with col1:
+        st.title(f"👋 안녕하세요, {name}님!")
+        st.caption(f"학년: {info['학년']}")
+    with col2:
+        st.write("")
+        if st.button("로그아웃", use_container_width=True):
+            st.session_state.logged_in = False
+            st.session_state.student_info = None
+            st.rerun()
 
-    if st.button("로그아웃"):
-        st.session_state.logged_in = False
-        st.session_state.student_info = None
-        st.rerun()
-
-    st.divider()
+    st.write("")
 
     tab1, tab2 = st.tabs(["📝 오늘 기록하기", "📊 내 기록 보기"])
 
@@ -124,5 +171,3 @@ if st.session_state.logged_in:
     show_main()
 else:
     show_login()
-
-    

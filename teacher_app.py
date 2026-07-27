@@ -3,9 +3,51 @@ import student_data as sd
 import report_generator as rg
 from datetime import datetime
 
-st.set_page_config(page_title="센터 교사관리", page_icon="👩‍🏫")
+st.set_page_config(page_title="센터 교사관리", page_icon="👩‍🏫", layout="centered")
 
 TEACHER_PASSWORD = "3004"
+
+# ===== 미니멀 디자인 CSS =====
+MINIMAL_CSS = """
+<style>
+    .block-container {padding-top: 2.5rem; padding-bottom: 3rem; max-width: 860px;}
+    h1, h2, h3 {font-weight: 700; letter-spacing: -0.5px;}
+    div[data-testid="stMetric"] {
+        background-color: #F7F7F5;
+        border: 1px solid #ECECE9;
+        border-radius: 12px;
+        padding: 14px 18px;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        border-radius: 12px !important;
+    }
+    .stButton>button {
+        border-radius: 8px;
+        font-weight: 500;
+    }
+    .stButton>button[kind="primary"] {
+        background-color: #0F766E;
+        border-color: #0F766E;
+    }
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 4px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 8px 8px 0 0;
+        padding: 8px 16px;
+    }
+    div[data-testid="stTextInput"] input,
+    div[data-testid="stTextArea"] textarea,
+    div[data-testid="stNumberInput"] input {
+        border-radius: 8px;
+    }
+    div[data-testid="stDataFrame"] {
+        border-radius: 10px;
+        overflow: hidden;
+    }
+</style>
+"""
+st.markdown(MINIMAL_CSS, unsafe_allow_html=True)
 
 # ===== 세션 상태 초기화 =====
 if "teacher_logged_in" not in st.session_state:
@@ -15,16 +57,19 @@ if "teacher_logged_in" not in st.session_state:
 # ===== 교사 로그인 화면 =====
 def show_teacher_login():
     st.title("👩‍🏫 센터 교사관리")
-    st.subheader("교사 로그인")
+    st.caption("학생 학습 현황과 피드백을 관리하세요")
+    st.write("")
 
-    password = st.text_input("비밀번호", type="password")
+    with st.container(border=True):
+        password = st.text_input("비밀번호", type="password")
+        st.write("")
 
-    if st.button("로그인", use_container_width=True):
-        if password == TEACHER_PASSWORD:
-            st.session_state.teacher_logged_in = True
-            st.rerun()
-        else:
-            st.error("비밀번호가 올바르지 않습니다.")
+        if st.button("로그인", use_container_width=True, type="primary"):
+            if password == TEACHER_PASSWORD:
+                st.session_state.teacher_logged_in = True
+                st.rerun()
+            else:
+                st.error("비밀번호가 올바르지 않습니다.")
 
 
 # ===== 학생 목록 불러오기 =====
@@ -37,29 +82,35 @@ def get_student_list():
 
 # ===== 교사 메인 화면 =====
 def show_teacher_main():
-    st.title("👩‍🏫 센터 교사관리")
+    col1, col2 = st.columns([5, 1])
+    with col1:
+        st.title("👩‍🏫 센터 교사관리")
+    with col2:
+        st.write("")
+        if st.button("로그아웃", use_container_width=True):
+            st.session_state.teacher_logged_in = False
+            st.rerun()
 
-    if st.button("로그아웃"):
-        st.session_state.teacher_logged_in = False
-        st.rerun()
+    st.write("")
 
-    st.divider()
-    col_sync1, col_sync2 = st.columns([3, 1])
-    with col_sync1:
-        st.caption("구글폼으로 제출된 학생 숙제 응답을 학습 기록/바이탈체크에 반영합니다.")
-    with col_sync2:
-        if st.button("🔄 새 응답 가져오기", use_container_width=True):
-            count = sd.sync_form_responses()
-            if count > 0:
-                st.success(f"✅ 새 응답 {count}건을 반영했어요!")
-            else:
-                st.info("새로운 응답이 없어요.")
+    with st.container(border=True):
+        col_sync1, col_sync2 = st.columns([3, 1])
+        with col_sync1:
+            st.caption("구글폼으로 제출된 학생 숙제 응답을 학습 기록/바이탈체크에 반영합니다.")
+        with col_sync2:
+            if st.button("🔄 새 응답 가져오기", use_container_width=True):
+                count = sd.sync_form_responses()
+                if count > 0:
+                    st.success(f"✅ 새 응답 {count}건을 반영했어요!")
+                else:
+                    st.info("새로운 응답이 없어요.")
 
+    st.write("")
     student_names = get_student_list()
     selected_student = st.selectbox("학생 선택", student_names)
 
     if selected_student:
-        st.divider()
+        st.write("")
         st.subheader(f"📋 {selected_student} 학생 현황")
 
         tab1, tab2, tab3, tab4 = st.tabs(["📊 학습 기록", "💭 바이탈체크", "✍️ 주간 피드백 작성", "📅 월말 보고서"])
@@ -68,7 +119,7 @@ def show_teacher_main():
             records = sd.get_study_records(selected_student)
             if records:
                 records_sorted = sorted(records, key=lambda r: r["날짜"], reverse=True)
-                st.dataframe(records_sorted, use_container_width=True)
+                st.dataframe(records_sorted, use_container_width=True, hide_index=True)
             else:
                 st.info("아직 학습 기록이 없어요.")
 
@@ -89,23 +140,24 @@ def show_teacher_main():
                 st.info("아직 작성된 바이탈체크가 없어요.")
 
         with tab3:
-            st.write("이번 주 피드백을 작성해주세요.")
+            with st.container(border=True):
+                st.write("이번 주 피드백을 작성해주세요.")
 
-            feedback_date = st.date_input("기록 날짜", value=datetime.now())
-            week_num = (feedback_date.day - 1) // 7 + 1
-            week = f"{week_num}주차"
-            st.caption(f"📅 자동 계산된 주차: **{week}**")
+                feedback_date = st.date_input("기록 날짜", value=datetime.now())
+                week_num = (feedback_date.day - 1) // 7 + 1
+                week = f"{week_num}주차"
+                st.caption(f"📅 자동 계산된 주차: **{week}**")
 
-            content = st.text_area("피드백 내용", height=150)
+                content = st.text_area("피드백 내용", height=150)
 
-            if st.button("피드백 저장하기", use_container_width=True):
-                if not content:
-                    st.warning("피드백 내용을 입력해주세요.")
-                else:
-                    sd.add_teacher_feedback(selected_student, week, content, feedback_date)
-                    st.success("✅ 피드백이 저장되었어요!")
+                if st.button("피드백 저장하기", use_container_width=True, type="primary"):
+                    if not content:
+                        st.warning("피드백 내용을 입력해주세요.")
+                    else:
+                        sd.add_teacher_feedback(selected_student, week, content, feedback_date)
+                        st.success("✅ 피드백이 저장되었어요!")
 
-            st.divider()
+            st.write("")
             st.write("**지난 피드백 목록**")
             feedbacks = sd.get_teacher_feedback(selected_student)
             if feedbacks:
@@ -126,7 +178,7 @@ def show_teacher_main():
             with col2:
                 month = st.number_input("월", min_value=1, max_value=12, value=datetime.now().month)
 
-            if st.button("보고서 생성", use_container_width=True):
+            if st.button("보고서 생성", use_container_width=True, type="primary"):
                 records, reflections, feedbacks, stats = rg.get_monthly_stats(selected_student, int(year), int(month))
 
                 st.subheader(f"📊 {selected_student} 학생 {year}년 {month}월 학습 요약")
@@ -178,5 +230,3 @@ if st.session_state.teacher_logged_in:
     show_teacher_main()
 else:
     show_teacher_login()
-
-    
