@@ -49,6 +49,29 @@ MINIMAL_CSS = """
     section[data-testid="stSidebar"] {
         background-color: #F7F7F5;
     }
+    section[data-testid="stSidebar"] .stButton>button {
+        text-align: left;
+        justify-content: flex-start;
+        background-color: transparent;
+        border: none;
+        padding: 10px 12px;
+        font-weight: 500;
+        color: #4B5563;
+        box-shadow: none;
+    }
+    section[data-testid="stSidebar"] .stButton>button:hover {
+        background-color: #ECECE9;
+        color: #111827;
+    }
+    section[data-testid="stSidebar"] .stButton>button[kind="primary"] {
+        background-color: #0F766E1A;
+        color: #0F766E;
+        font-weight: 700;
+        border: none;
+    }
+    section[data-testid="stSidebar"] .stButton>button[kind="primary"]:hover {
+        background-color: #0F766E29;
+    }
     .rank-row {display:flex; align-items:center; padding:10px 12px; border-radius:10px; margin-bottom:6px; background:#F7F7F5;}
     .rank-row.r1 {background:#FFF6DA; border:1px solid #FFD966;}
     .rank-row.r2 {background:#F2F2F2; border:1px solid #CCCCCC;}
@@ -133,6 +156,43 @@ def get_student_list():
     return [row["이름"] for row in records]
 
 
+# ===== 우리반 랭킹 (전체, 사이드바 메뉴로 독립) =====
+def show_class_ranking():
+    st.markdown("#### 🏆 우리반 랭킹")
+    st.caption("전체 학생 랭킹이에요. 선생님은 보기만 가능해요 (좋아요는 학생만 가능).")
+
+    period_label = st.radio("기간", ["이번 주", "이번 달", "전체"], horizontal=True, label_visibility="collapsed", key="teacher_ranking_period")
+    period_map = {"이번 주": "week", "이번 달": "month", "전체": "all"}
+    period = period_map[period_label]
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("#### 📚 성실왕")
+        render_board(sd.get_study_ranking(period))
+    with col2:
+        st.markdown("#### 💝 감사왕")
+        render_board(sd.get_vital_ranking(period))
+
+    st.write("")
+    st.markdown("#### 💌 감사나눔")
+
+    posts = sd.get_gratitude_posts()
+    if not posts:
+        st.info("아직 올라온 감사 글이 없어요.")
+    else:
+        for p in posts:
+            with st.container(border=True):
+                col1, col2 = st.columns([4, 1])
+                with col1:
+                    st.markdown(f"**{p['name']}** &nbsp; <span style='color:#9CA3AF;font-size:0.85em;'>{p['date']}</span>", unsafe_allow_html=True)
+                    st.write(p["content"])
+                with col2:
+                    st.markdown(
+                        f"<div style='text-align:center; padding-top:10px; color:#9CA3AF;'>💖 {p['likes']}</div>",
+                        unsafe_allow_html=True,
+                    )
+
+
 # ===== 일일 학습현황 (전체 학생, 날짜 선택) =====
 def show_daily_status():
     st.markdown("#### 📅 일일 학습현황")
@@ -201,14 +261,32 @@ def show_teacher_main():
             st.rerun()
 
         st.divider()
-        menu = st.radio(
-            "메뉴",
-            ["👤 학생별 조회", "📅 일일 학습현황 확인"],
-            label_visibility="collapsed",
-        )
+
+        if "teacher_menu" not in st.session_state:
+            st.session_state.teacher_menu = "daily"
+
+        nav_items = [
+            ("daily", "📅 일일 학습현황 확인"),
+            ("ranking", "🏆 우리반 랭킹"),
+            ("student", "👤 학생별 조회"),
+        ]
+
+        for key, label in nav_items:
+            is_active = st.session_state.teacher_menu == key
+            if st.button(
+                label,
+                use_container_width=True,
+                type="primary" if is_active else "secondary",
+                key=f"nav_{key}",
+            ):
+                st.session_state.teacher_menu = key
+                st.rerun()
+
+        menu = st.session_state.teacher_menu
 
         selected_student = None
-        if menu == "👤 학생별 조회":
+        if menu == "student":
+            st.write("")
             student_names = get_student_list()
             selected_student = st.selectbox("학생 선택", student_names)
 
@@ -223,8 +301,12 @@ def show_teacher_main():
     st.markdown("#### 👩‍🏫 센터 교사관리")
     st.write("")
 
-    if menu == "📅 일일 학습현황 확인":
+    if menu == "daily":
         show_daily_status()
+        return
+
+    if menu == "ranking":
+        show_class_ranking()
         return
 
     if not selected_student:
@@ -235,8 +317,8 @@ def show_teacher_main():
 
     st.write("")
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(
-        ["📊 학습 기록", "💭 바이탈체크", "✍️ 주간 피드백 작성", "📅 월말 보고서", "🏆 우리반 랭킹"]
+    tab1, tab2, tab3, tab4 = st.tabs(
+        ["📊 학습 기록", "💭 바이탈체크", "✍️ 주간 피드백 작성", "📅 월말 보고서"]
     )
 
     with tab1:
@@ -365,40 +447,6 @@ def show_teacher_main():
                 mime="application/pdf",
                 use_container_width=True
             )
-
-    with tab5:
-        st.caption("전체 학생 랭킹이에요. 선생님은 보기만 가능해요 (좋아요는 학생만 가능).")
-
-        period_label = st.radio("기간", ["이번 주", "이번 달", "전체"], horizontal=True, label_visibility="collapsed", key="teacher_ranking_period")
-        period_map = {"이번 주": "week", "이번 달": "month", "전체": "all"}
-        period = period_map[period_label]
-
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("#### 📚 성실왕")
-            render_board(sd.get_study_ranking(period))
-        with col2:
-            st.markdown("#### 💝 감사왕")
-            render_board(sd.get_vital_ranking(period))
-
-        st.write("")
-        st.markdown("#### 💌 감사나눔")
-
-        posts = sd.get_gratitude_posts()
-        if not posts:
-            st.info("아직 올라온 감사 글이 없어요.")
-        else:
-            for p in posts:
-                with st.container(border=True):
-                    col1, col2 = st.columns([4, 1])
-                    with col1:
-                        st.markdown(f"**{p['name']}** &nbsp; <span style='color:#9CA3AF;font-size:0.85em;'>{p['date']}</span>", unsafe_allow_html=True)
-                        st.write(p["content"])
-                    with col2:
-                        st.markdown(
-                            f"<div style='text-align:center; padding-top:10px; color:#9CA3AF;'>💖 {p['likes']}</div>",
-                            unsafe_allow_html=True,
-                        )
 
 
 # ===== 화면 분기 =====
