@@ -1,15 +1,19 @@
 import streamlit as st
 import student_data as sd
+from datetime import datetime
 
 st.set_page_config(page_title="센터 학습관리", page_icon="📚", layout="centered")
+
+WEEKDAY_KR = ["월", "화", "수", "목", "금", "토", "일"]
 
 # ===== 미니멀 디자인 CSS =====
 MINIMAL_CSS = """
 <style>
     .block-container {padding-top: 2.5rem; padding-bottom: 3rem; max-width: 760px;}
-    h1, h2, h3 {font-weight: 700; letter-spacing: -0.5px;}
+    h1, h2, h3, h4 {font-weight: 700; letter-spacing: -0.5px;}
+    [data-testid="stCaptionContainer"] {color: #9CA3AF !important;}
     div[data-testid="stVerticalBlockBorderWrapper"] {
-        border-radius: 12px !important;
+        border-radius: 14px !important;
     }
     .stButton>button {
         border-radius: 8px;
@@ -35,9 +39,26 @@ MINIMAL_CSS = """
         border-radius: 10px;
         overflow: hidden;
     }
+    section[data-testid="stSidebar"] {
+        background-color: #F7F7F5;
+    }
 </style>
 """
 st.markdown(MINIMAL_CSS, unsafe_allow_html=True)
+
+
+def badge(text, color):
+    """색깔 배지 HTML 생성"""
+    return (
+        f"<span style='background:{color}1A;color:{color};padding:3px 10px;"
+        f"border-radius:6px;font-size:0.85em;font-weight:600;'>{text}</span>"
+    )
+
+
+def today_korean():
+    today = datetime.now()
+    return f"{today.year}년 {today.month}월 {today.day}일 ({WEEKDAY_KR[today.weekday()]})"
+
 
 # ===== 세션 상태 초기화 =====
 if "logged_in" not in st.session_state:
@@ -48,33 +69,45 @@ if "student_info" not in st.session_state:
 
 # ===== 로그인 화면 =====
 def show_login():
-    st.title("📚 센터 학습관리")
-    st.caption("오늘의 학습을 기록하고 나의 성장을 확인해보세요")
+    st.write("")
     st.write("")
 
-    with st.container(border=True):
-        name = st.text_input("이름")
-        password = st.text_input("비밀번호", type="password")
+    col1, col2, col3 = st.columns([1, 3, 1])
+    with col2:
+        st.markdown(
+            "<h1 style='text-align:center; margin-bottom:0;'>📚 센터 학습관리</h1>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            "<p style='text-align:center; color:#9CA3AF; margin-top:4px;'>"
+            "오늘의 학습을 기록하고 나의 성장을 확인해보세요</p>",
+            unsafe_allow_html=True,
+        )
         st.write("")
 
-        if st.button("로그인", use_container_width=True, type="primary"):
-            if not name or not password:
-                st.warning("이름과 비밀번호를 모두 입력해주세요.")
-                return
+        with st.container(border=True):
+            name = st.text_input("이름")
+            password = st.text_input("비밀번호", type="password")
+            st.write("")
 
-            result = sd.login(name, password)
-            if result:
-                st.session_state.logged_in = True
-                st.session_state.student_info = result
-                st.rerun()
-            else:
-                st.error("이름 또는 비밀번호가 올바르지 않습니다.")
+            if st.button("로그인", use_container_width=True, type="primary"):
+                if not name or not password:
+                    st.warning("이름과 비밀번호를 모두 입력해주세요.")
+                    return
+
+                result = sd.login(name, password)
+                if result:
+                    st.session_state.logged_in = True
+                    st.session_state.student_info = result
+                    st.rerun()
+                else:
+                    st.error("이름 또는 비밀번호가 올바르지 않습니다.")
 
 
 # ===== 탭 1: 오늘 기록하기 (학습 기록 + 바이탈체크 통합) =====
 def tab_add_record(name):
     with st.container(border=True):
-        st.subheader("📝 오늘 학습 기록")
+        st.markdown("#### 📝 오늘 학습 기록")
 
         col1, col2 = st.columns(2)
         with col1:
@@ -93,7 +126,7 @@ def tab_add_record(name):
     st.write("")
 
     with st.container(border=True):
-        st.subheader("💭 바이탈체크")
+        st.markdown("#### 💭 바이탈체크")
 
         gratitude = st.text_area("감사한 일")
         love = st.text_area("사랑을 경험한 일")
@@ -104,25 +137,43 @@ def tab_add_record(name):
 
     st.write("")
 
-    if st.button("오늘 기록 저장하기", use_container_width=True, type="primary"):
+    if st.button("✅ 오늘 기록 저장하기", use_container_width=True, type="primary"):
         sd.add_study_record(name, target_time, achieved_time, read_count, dictation, vocab)
         sd.add_student_reflection(name, gratitude, love, praise, overcome, curiosity, challenge)
-        st.success("✅ 오늘의 학습 기록과 바이탈체크가 저장되었어요!")
+        st.success("오늘의 학습 기록과 바이탈체크가 저장되었어요!")
 
 
-# ===== 탭 2: 내 기록 보기 (학습 기록 + 바이탈체크 통합) =====
+# ===== 탭 2: 내 기록 보기 (카드형 최근 기록 + 표) =====
 def tab_view_records(name):
-    st.subheader("📊 내 학습 기록")
+    st.markdown("#### 📊 내 학습 기록")
 
     records = sd.get_study_records(name)
     if records:
         records_sorted = sorted(records, key=lambda r: r["날짜"], reverse=True)
-        st.dataframe(records_sorted, use_container_width=True, hide_index=True)
+        recent = records_sorted[:3]
+        rest = records_sorted[3:]
+
+        for r in recent:
+            with st.container(border=True):
+                col1, col2 = st.columns([1, 2])
+                with col1:
+                    st.write(f"**{r['날짜']}**")
+                    dict_badge = badge("딕테이션 완료", "#0F766E") if r["딕테이션"] == "O" else badge("딕테이션 미완료", "#9CA3AF")
+                    vocab_badge = badge("어휘 완료", "#0F766E") if r["어휘"] == "O" else badge("어휘 미완료", "#9CA3AF")
+                    st.markdown(f"{dict_badge} &nbsp; {vocab_badge}", unsafe_allow_html=True)
+                with col2:
+                    st.caption(f"읽은 횟수: {r['읽은횟수']}회")
+                    st.caption(f"목표 {r['리딩_목표시간']}초 → 성취 {r['리딩_성취시간']}초")
+
+        if rest:
+            st.write("")
+            with st.expander(f"이전 기록 더보기 ({len(rest)}건)"):
+                st.dataframe(rest, use_container_width=True, hide_index=True)
     else:
         st.info("아직 기록된 학습 내용이 없어요.")
 
     st.write("")
-    st.subheader("💭 내 바이탈체크")
+    st.markdown("#### 💭 내 바이탈체크")
 
     reflections = sd.get_student_reflections(name)
     if reflections:
@@ -145,16 +196,18 @@ def show_main():
     info = st.session_state.student_info
     name = info["이름"]
 
-    col1, col2 = st.columns([5, 1])
-    with col1:
-        st.title(f"👋 안녕하세요, {name}님!")
+    with st.sidebar:
+        st.markdown(f"### 👋 {name}님")
         st.caption(f"학년: {info['학년']}")
-    with col2:
         st.write("")
         if st.button("로그아웃", use_container_width=True):
             st.session_state.logged_in = False
             st.session_state.student_info = None
             st.rerun()
+
+    with st.container(border=True):
+        st.markdown(f"#### 👋 안녕하세요, {name}님!")
+        st.caption(today_korean())
 
     st.write("")
 
@@ -171,3 +224,4 @@ if st.session_state.logged_in:
     show_main()
 else:
     show_login()
+    
