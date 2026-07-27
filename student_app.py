@@ -42,6 +42,13 @@ MINIMAL_CSS = """
     section[data-testid="stSidebar"] {
         background-color: #F7F7F5;
     }
+    .rank-row {display:flex; align-items:center; padding:10px 12px; border-radius:10px; margin-bottom:6px; background:#F7F7F5;}
+    .rank-row.r1 {background:#FFF6DA; border:1px solid #FFD966;}
+    .rank-row.r2 {background:#F2F2F2; border:1px solid #CCCCCC;}
+    .rank-row.r3 {background:#FBE9DD; border:1px solid #E0B088;}
+    .rank-badge {width:32px; font-weight:700; font-size:16px; text-align:center;}
+    .rank-name {flex:1; padding-left:8px; font-size:15px;}
+    .rank-point {font-weight:700; color:#0F766E; font-size:15px;}
 </style>
 """
 st.markdown(MINIMAL_CSS, unsafe_allow_html=True)
@@ -58,6 +65,27 @@ def badge(text, color):
 def today_korean():
     today = datetime.now()
     return f"{today.year}년 {today.month}월 {today.day}일 ({WEEKDAY_KR[today.weekday()]})"
+
+
+def medal(rank):
+    return {0: "🥇", 1: "🥈", 2: "🥉"}.get(rank, str(rank + 1))
+
+
+def render_board(data):
+    if not data:
+        st.info("아직 기록이 없어요.")
+        return
+    html = ""
+    for i, item in enumerate(data):
+        cls = f"r{i+1}" if i < 3 else ""
+        html += (
+            f'<div class="rank-row {cls}">'
+            f'<div class="rank-badge">{medal(i)}</div>'
+            f'<div class="rank-name">{item["name"]}</div>'
+            f'<div class="rank-point">{item["points"]}점</div>'
+            f'</div>'
+        )
+    st.markdown(html, unsafe_allow_html=True)
 
 
 # ===== 세션 상태 초기화 =====
@@ -127,6 +155,7 @@ def tab_add_record(name):
 
     with st.container(border=True):
         st.markdown("#### 💭 바이탈체크")
+        st.caption("감사한 일은 자동으로 '감사나눔' 게시판에도 공유돼요.")
 
         gratitude = st.text_area("감사한 일")
         love = st.text_area("사랑을 경험한 일")
@@ -140,7 +169,7 @@ def tab_add_record(name):
     if st.button("✅ 오늘 기록 저장하기", use_container_width=True, type="primary"):
         sd.add_study_record(name, target_time, achieved_time, read_count, dictation, vocab)
         sd.add_student_reflection(name, gratitude, love, praise, overcome, curiosity, challenge)
-        st.success("오늘의 학습 기록과 바이탈체크가 저장되었어요!")
+        st.success("오늘의 학습 기록과 바이탈체크가 저장되었어요! 성실왕/감사왕 점수도 올라갔어요 🎉")
 
 
 # ===== 탭 2: 내 기록 보기 (카드형 최근 기록 + 표) =====
@@ -191,6 +220,51 @@ def tab_view_records(name):
         st.info("아직 작성된 바이탈체크가 없어요.")
 
 
+# ===== 탭 3: 🏆 우리반 랭킹 (성실왕/감사왕 + 감사나눔) =====
+def tab_ranking(name):
+    my = sd.get_my_total_points(name)
+    st.markdown(
+        f"<div style='background:#0F766E1A; color:#0F766E; font-weight:700; "
+        f"padding:8px 14px; border-radius:20px; display:inline-block; margin-bottom:14px;'>"
+        f"🏅 나의 누적 {my['total']}점 (학습 {my['study']} + 감사 {my['vital']})</div>",
+        unsafe_allow_html=True,
+    )
+
+    period_label = st.radio("기간", ["이번 주", "이번 달", "전체"], horizontal=True, label_visibility="collapsed")
+    period_map = {"이번 주": "week", "이번 달": "month", "전체": "all"}
+    period = period_map[period_label]
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("#### 📚 성실왕")
+        render_board(sd.get_study_ranking(period))
+    with col2:
+        st.markdown("#### 💝 감사왕")
+        render_board(sd.get_vital_ranking(period))
+
+    st.write("")
+    st.markdown("#### 💌 감사나눔")
+    st.caption("친구들이 적은 감사한 일이에요. 좋아요로 응원해주세요!")
+
+    posts = sd.get_gratitude_posts(name)
+    if not posts:
+        st.info("아직 올라온 감사 글이 없어요.")
+    else:
+        for p in posts:
+            with st.container(border=True):
+                col1, col2 = st.columns([4, 1])
+                with col1:
+                    st.markdown(f"**{p['name']}** &nbsp; <span style='color:#9CA3AF;font-size:0.85em;'>{p['date']}</span>", unsafe_allow_html=True)
+                    st.write(p["content"])
+                with col2:
+                    if p["liked_by_me"]:
+                        st.button(f"💖 {p['likes']}", key=f"like_{p['id']}", disabled=True, use_container_width=True)
+                    else:
+                        if st.button(f"🤍 {p['likes']}", key=f"like_{p['id']}", use_container_width=True):
+                            sd.add_like(p["id"], name)
+                            st.rerun()
+
+
 # ===== 로그인 후 메인 화면 =====
 def show_main():
     info = st.session_state.student_info
@@ -211,12 +285,14 @@ def show_main():
 
     st.write("")
 
-    tab1, tab2 = st.tabs(["📝 오늘 기록하기", "📊 내 기록 보기"])
+    tab1, tab2, tab3 = st.tabs(["📝 오늘 기록하기", "📊 내 기록 보기", "🏆 우리반 랭킹"])
 
     with tab1:
         tab_add_record(name)
     with tab2:
         tab_view_records(name)
+    with tab3:
+        tab_ranking(name)
 
 
 # ===== 화면 분기 =====
@@ -224,4 +300,3 @@ if st.session_state.logged_in:
     show_main()
 else:
     show_login()
-    

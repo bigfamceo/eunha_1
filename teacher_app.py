@@ -49,6 +49,13 @@ MINIMAL_CSS = """
     section[data-testid="stSidebar"] {
         background-color: #F7F7F5;
     }
+    .rank-row {display:flex; align-items:center; padding:10px 12px; border-radius:10px; margin-bottom:6px; background:#F7F7F5;}
+    .rank-row.r1 {background:#FFF6DA; border:1px solid #FFD966;}
+    .rank-row.r2 {background:#F2F2F2; border:1px solid #CCCCCC;}
+    .rank-row.r3 {background:#FBE9DD; border:1px solid #E0B088;}
+    .rank-badge {width:32px; font-weight:700; font-size:16px; text-align:center;}
+    .rank-name {flex:1; padding-left:8px; font-size:15px;}
+    .rank-point {font-weight:700; color:#0F766E; font-size:15px;}
 </style>
 """
 st.markdown(MINIMAL_CSS, unsafe_allow_html=True)
@@ -60,6 +67,27 @@ def badge(text, color):
         f"<span style='background:{color}1A;color:{color};padding:3px 10px;"
         f"border-radius:6px;font-size:0.85em;font-weight:600;'>{text}</span>"
     )
+
+
+def medal(rank):
+    return {0: "🥇", 1: "🥈", 2: "🥉"}.get(rank, str(rank + 1))
+
+
+def render_board(data):
+    if not data:
+        st.info("아직 기록이 없어요.")
+        return
+    html = ""
+    for i, item in enumerate(data):
+        cls = f"r{i+1}" if i < 3 else ""
+        html += (
+            f'<div class="rank-row {cls}">'
+            f'<div class="rank-badge">{medal(i)}</div>'
+            f'<div class="rank-name">{item["name"]}</div>'
+            f'<div class="rank-point">{item["points"]}점</div>'
+            f'</div>'
+        )
+    st.markdown(html, unsafe_allow_html=True)
 
 
 # ===== 세션 상태 초기화 =====
@@ -137,7 +165,9 @@ def show_teacher_main():
 
     st.write("")
 
-    tab1, tab2, tab3, tab4 = st.tabs(["📊 학습 기록", "💭 바이탈체크", "✍️ 주간 피드백 작성", "📅 월말 보고서"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(
+        ["📊 학습 기록", "💭 바이탈체크", "✍️ 주간 피드백 작성", "📅 월말 보고서", "🏆 우리반 랭킹"]
+    )
 
     with tab1:
         records = sd.get_study_records(selected_student)
@@ -266,9 +296,44 @@ def show_teacher_main():
                 use_container_width=True
             )
 
+    with tab5:
+        st.caption("전체 학생 랭킹이에요. 선생님은 보기만 가능해요 (좋아요는 학생만 가능).")
+
+        period_label = st.radio("기간", ["이번 주", "이번 달", "전체"], horizontal=True, label_visibility="collapsed", key="teacher_ranking_period")
+        period_map = {"이번 주": "week", "이번 달": "month", "전체": "all"}
+        period = period_map[period_label]
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("#### 📚 성실왕")
+            render_board(sd.get_study_ranking(period))
+        with col2:
+            st.markdown("#### 💝 감사왕")
+            render_board(sd.get_vital_ranking(period))
+
+        st.write("")
+        st.markdown("#### 💌 감사나눔")
+
+        posts = sd.get_gratitude_posts()
+        if not posts:
+            st.info("아직 올라온 감사 글이 없어요.")
+        else:
+            for p in posts:
+                with st.container(border=True):
+                    col1, col2 = st.columns([4, 1])
+                    with col1:
+                        st.markdown(f"**{p['name']}** &nbsp; <span style='color:#9CA3AF;font-size:0.85em;'>{p['date']}</span>", unsafe_allow_html=True)
+                        st.write(p["content"])
+                    with col2:
+                        st.markdown(
+                            f"<div style='text-align:center; padding-top:10px; color:#9CA3AF;'>💖 {p['likes']}</div>",
+                            unsafe_allow_html=True,
+                        )
+
 
 # ===== 화면 분기 =====
 if st.session_state.teacher_logged_in:
     show_teacher_main()
 else:
     show_teacher_login()
+    
