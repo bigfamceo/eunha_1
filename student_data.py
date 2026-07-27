@@ -2,6 +2,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 from datetime import datetime
 import re
+import os
 
 # ===== 초기 설정 =====
 SCOPES = [
@@ -13,7 +14,24 @@ SHEET_NAME = "eunha1"
 
 
 def get_spreadsheet():
-    """구글 스프레드시트 연결 객체 반환"""
+    """구글 스프레드시트 연결 객체 반환
+    - Streamlit Cloud(배포 환경)에서는 st.secrets 사용
+    - 로컬(내 컴퓨터)에서는 JSON 키 파일 사용
+    """
+    try:
+        import streamlit as st
+        # secrets.toml에 [gcp_service_account] 항목이 있으면 그걸 사용
+        if "gcp_service_account" in st.secrets:
+            credentials = Credentials.from_service_account_info(
+                st.secrets["gcp_service_account"], scopes=SCOPES
+            )
+            client = gspread.authorize(credentials)
+            return client.open(SHEET_NAME)
+    except Exception:
+        # streamlit이 없거나 secrets 접근 실패 시 로컬 방식으로 넘어감
+        pass
+
+    # 로컬 환경: JSON 키 파일 사용
     credentials = Credentials.from_service_account_file(JSON_KEY_PATH, scopes=SCOPES)
     client = gspread.authorize(credentials)
     return client.open(SHEET_NAME)
